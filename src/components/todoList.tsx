@@ -15,6 +15,21 @@ import DateTimePicker from '@mui/lab/DateTimePicker'
 import AdapterDateFns from '@mui/lab/AdapterDateFns'
 import LocalizationProvider from '@mui/lab/LocalizationProvider'
 import SocketIOClient from "socket.io-client"
+import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+// import { dark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import styles from '../styles/Home.module.css'
+import NoSsr from '@mui/material/NoSsr'
+
+const Editor = (props: any) => {
+  if (typeof window !== "undefined") {
+    const Ace = require("react-ace").default
+    require("ace-builds/src-noconflict/mode-markdown.js")
+    require("ace-builds/src-noconflict/theme-github")
+    return <Ace {...props} />
+  }
+  return null
+}
 
 interface IMsg {
   user: string
@@ -24,23 +39,21 @@ interface IMsg {
 // create random user
 const user = "User_" + String(new Date().getTime()).substr(-3)
 
-export default function TodoList ({ messages }) {
-
-  const [content, setContent] = useState('')
-  const [todoList, setTodoList] = useState<string[]>(messages)
-  console.log("chats")
-  console.log(messages)
-  // console.log(chat)
-
-  const inputRef = useRef(null)
+export default function TodoList ({ messages, text }) {
+  const [userList, setUserList] = useState<string[]>()
+  const [docText, setDocText] = useState(text)
+  const [selectionStart, setSelectionStart] = React.useState()
 
   // connected flag
   const [connected, setConnected] = useState<boolean>(false)
 
   // init chat and message
   const [chat, setChat] = useState<IMsg[]>(messages)
-  // const [chat, setChat] = useState<[]>(messages)
   const [msg, setMsg] = useState<string>("")
+
+  function onChange (newValue) {
+    setText(newValue)
+  }
 
   useEffect((): any => {
     // connect to socket server
@@ -51,7 +64,6 @@ export default function TodoList ({ messages }) {
     // log socket connection
     socket.on("connect", () => {
       console.log("SOCKET CONNECTED!", socket.id)
-      // console.log(socket)
       setConnected(true)
     })
 
@@ -61,114 +73,96 @@ export default function TodoList ({ messages }) {
       setChat([...chat])
     })
 
+    // update chat on new message dispatched
+    socket.on("text", (text: String) => {
+      setDocText(text)
+      // TODO: userCursorの更新時に呼び出す
+      updateCursorElement(0)
+    })
+
     // socket disconnet onUnmount if exists
     if (socket) return () => socket.disconnect()
   }, [])
 
-  const sendMessage = async () => {
-    if (msg) {
-      // build message obj
-      const message: IMsg = {
-        user,
-        msg,
-      }
+  const setText = async (value) => {
+    // dispatch text to other users
+    const resp = await fetch("/api/doc", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(value),
+    })
+  }
 
-      // dispatch message to other users
-      const resp = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(message),
-      })
-
-      // reset field if OK
-      if (resp.ok) setMsg("")
+  function updateCursorElement (userId) {
+    if (typeof document !== 'undefined') {
+      document.getElementById(userId)?.remove()
+      const subRoot1 = document.createElement('div')
+      subRoot1.className = styles.cursor
+      subRoot1.id = userId
+      const topLine = document.getElementsByClassName("ace_gutter-cell")[0].textContent
+      subRoot1.style["top"] = String((10 - Number(topLine)) * 14) + "px"
+      document.getElementsByClassName("ace_cursor-layer")[0].appendChild(subRoot1)
     }
+  }
 
-    // focus after click
-    inputRef?.current?.focus()
+  function updateCursorTop () {
+    // TODO: debounceするべき
+    // https://aloerina01.github.io/blog/2017-08-03-1
+    if (typeof document !== 'undefined') {
+      setTimeout(function () {
+        const subRoot1 = document.getElementById("0")
+        if (subRoot1) {
+          const topLine = document.getElementsByClassName("ace_gutter-cell")[0].textContent
+          subRoot1.style["top"] = String((10 - Number(topLine)) * 14) + "px"
+          document.getElementsByClassName("ace_cursor-layer")[0].appendChild(subRoot1)
+        }
+      }, 50)
+    }
   }
 
   return (
-    <>
-      <Box m={2}>
-        <Stack spacing={2} direction="row">
-          <TextField
-            id="outlined-basic"
-            label="やること"
-            variant="outlined"
-            // value={content}
-            value={msg}
-            onChange={(e) => {
-              // setContent(e.target.value)
-              setMsg(e.target.value)
+    <Box m={2}>
+      <Stack spacing={2} direction="row">
+        <Box>
+          <NoSsr>
+            <Editor
+              mode="markdown"
+              theme="github"
+              onChange={onChange}
+              onScroll={updateCursorTop}
+              value={docText}
+              name="UNIQUE_ID_OF_DIV"
+              instanceId="test"
+              editorProps={{ $blockScrolling: true }}
+            />
+          </NoSsr>
+        </Box>
+        <Box>
+          <ReactMarkdown
+            children={docText}
+            components={{
+              code ({ node, inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '')
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    children={String(children).replace(/\n$/, '')}
+                    // style={dark}
+                    language={match[1]}
+                    PreTag="div"
+                    {...props}
+                  />
+                ) : (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                )
+              }
             }}
           />
-          <Button
-            variant="contained"
-            // disabled={content === ''}
-            disabled={msg === ''}
-            onClick={() => {
-              // setTodoList([...todoList, content])
-              // setContent('')
-              sendMessage()
-            }}
-          >
-            追加
-          </Button>
-        </Stack>
-      </Box>
-      <Grid sx={{ flexGrow: 1 }} container spacing={2} m={2}>
-        <Grid item xs={12}>
-          <Grid container justifyContent="flex-start" spacing={2}>
-            {/* {todoList.map((value, index) => ( */}
-            {chat.map((value, index) => (
-              <Grid key={value.user} item>
-                <Card sx={{ minWidth: 275 }} key={value.user}>
-                  <CardContent>
-                    <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
-                      {value.user}
-                      {value.msg}
-                    </Typography>
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DateTimePicker
-                        label="Date&Time picker"
-                        value={new Date()}
-                        onChange={() => {}}
-                        renderInput={(params) => <TextField {...params} />}
-                      />
-                    </LocalizationProvider>
-                  </CardContent>
-                  <CardActions disableSpacing>
-                    <Grid container justifyContent="flex-end">
-                      <IconButton
-                        aria-label="edit todo"
-                        onClick={() => {
-                          // alert(todoList)
-                          alert(chat)
-                        }}
-                      >
-                        <EditIcon color="action" />
-                      </IconButton>
-                      <IconButton
-                        aria-label="remove todo"
-                        onClick={() => {
-                          setTodoList(todoList.filter((value, i) => {
-                            return index !== i
-                          }))
-                        }}
-                      >
-                        <DeleteIcon color="action" />
-                      </IconButton>
-                    </Grid>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Grid>
-      </Grid>
-    </>
+        </Box>
+      </Stack>
+    </Box>
   )
 }

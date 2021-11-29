@@ -114,3 +114,25 @@
     flex-direction: column;
   }
 }
+
+.cursor {
+  display: block;
+  left: 4px;
+  width: 2px;
+  height: 14px;
+  animation: flash 1s linear infinite;
+  position: absolute;
+  background: green;
+  z-index: 10;
+  border-radius: 10px;
+}
+
+@keyframes flash {
+  0%,100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}

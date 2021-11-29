@@ -2,15 +2,15 @@ import type { NextPage } from 'next'
 import ButtonAppBar from '../components/appBar'
 import TodoList from 'src/components/todoList'
 
-const Home: NextPage = ({ messages }) => {
+const Home: NextPage = ({ messages, text }) => {
   console.log("Home")
   console.log(messages)
 
   return (
-    <div>
+    <>
       <ButtonAppBar />
-      <TodoList messages={messages} />
-    </div>
+      <TodoList messages={messages} text={text} />
+    </>
   )
 }
 
@@ -21,10 +21,12 @@ export async function getServerSideProps () {
   const redis = new Redis(6379, 'redis')
   let messages = await redis.lrange('messages', 0, -1)
   messages = messages.map(e => JSON.parse(e))
-  console.log(messages)
+  let text = await redis.get('text')
+  // text = JSON.parse(text)
   return {
     props: {
-      messages
+      messages,
+      text
     }
   }
 }
