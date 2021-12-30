@@ -103,6 +103,9 @@ export default function TodoList ({ messages, text }) {
       subRoot1.id = userId
       const topLine = document.getElementsByClassName("ace_gutter-cell")[0].textContent
       subRoot1.style["top"] = String((10 - Number(topLine)) * 14) + "px"
+      subRoot1.style["left"] = "17px"
+      // TODO: 最初の矢印が自分のやつなので行数とleft pxを取得
+      // 行数→ace_gutter-active-line
       document.getElementsByClassName("ace_cursor-layer")[0].appendChild(subRoot1)
     }
   }
@@ -116,6 +119,7 @@ export default function TodoList ({ messages, text }) {
         if (subRoot1) {
           const topLine = document.getElementsByClassName("ace_gutter-cell")[0].textContent
           subRoot1.style["top"] = String((10 - Number(topLine)) * 14) + "px"
+          subRoot1.style["left"] = "17px"
           document.getElementsByClassName("ace_cursor-layer")[0].appendChild(subRoot1)
         }
       }, 50)
@@ -132,6 +136,8 @@ export default function TodoList ({ messages, text }) {
               theme="github"
               onChange={onChange}
               onScroll={updateCursorTop}
+              // onClick={alert("click")}
+              // onKeyDown={alert("key")}
               value={docText}
               name="UNIQUE_ID_OF_DIV"
               instanceId="test"
